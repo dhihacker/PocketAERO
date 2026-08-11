@@ -74,9 +74,7 @@ endif()
 # ── mbelib AMBE vocoder (static, compiled into rf_studio_sdr) ─────────────────
 set(MBELIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/libaeroambe/mbelib-master")
 set(MBELIB_SRC
-    ${MBELIB_DIR}/ambe4800x3600.c
-    ${MBELIB_DIR}/ecc.c
-    ${MBELIB_DIR}/mbelib.c)
+    ${MBELIB_DIR}/ambe4800x3600.c)
 
 set(JAERO_DSP_SRC
     ${JAERO_DSP_DIR}/DSP.cpp
