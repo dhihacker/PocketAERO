@@ -21,9 +21,15 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.0'
+          flutter-version: '3.29.0'
           channel: 'stable'
           cache: true
+
+      - name: Verify environment
+        run: |
+          flutter --version
+          dart --version
+          flutter doctor -v
 
       - name: Get dependencies
         run: flutter pub get
@@ -35,21 +41,26 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/keystore.jks
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > android/app/keystore.jks
+          else
+            echo "No keystore provided, building unsigned APK"
+          fi
 
-      - name: Create key.properties
+      - name: Create key.properties (if keystore exists)
+        if: env.KEYSTORE_BASE64 != ''
         run: |
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "storeFile=keystore.jks" >> android/key.properties
 
-      - name: Build signed APK
+      - name: Build APK
         run: flutter build apk --release
 
-      - name: Upload signed APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: pocketaero-signed-apk
+          name: pocketaero-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
