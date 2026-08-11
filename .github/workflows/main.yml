@@ -21,13 +21,37 @@ jobs:
       - name: Set up Flutter (master channel)
         uses: subosito/flutter-action@v2
         with:
-          channel: 'master'  # Use master channel for latest Dart
+          channel: 'master'
           cache: true
 
       - name: Verify versions
         run: |
           flutter --version
           dart --version
+
+      - name: Fix CMakeLists.txt hardcoded paths
+        run: |
+          # The CMakeLists.txt is at android/app/src/main/cpp/CMakeLists.txt
+          CMAKE_FILE="android/app/src/main/cpp/CMakeLists.txt"
+          
+          echo "Original CMakeLists.txt:"
+          cat "$CMAKE_FILE"
+          
+          # Fix hardcoded path by replacing with relative path
+          # Change /home/rose/Compiled/AndAERO/libaeroambe to ${CMAKE_CURRENT_SOURCE_DIR}/libaeroambe
+          sed -i 's|/home/rose/Compiled/AndAERO/libaeroambe|${CMAKE_CURRENT_SOURCE_DIR}/libaeroambe|g' "$CMAKE_FILE"
+          
+          echo -e "\n\nFixed CMakeLists.txt:"
+          cat "$CMAKE_FILE"
+
+      - name: Ensure libaeroambe directory exists
+        run: |
+          # Check if the libaeroambe directory exists in the cpp folder
+          if [ ! -d "android/app/src/main/cpp/libaeroambe" ]; then
+            echo "Warning: libaeroambe directory not found. Creating symlink or structure..."
+            # Try to find libaeroambe elsewhere in the project
+            find . -name "libaeroambe" -type d 2>/dev/null || true
+          fi
 
       - name: Get dependencies
         run: flutter pub get
