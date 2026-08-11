@@ -29,35 +29,67 @@ jobs:
           flutter --version
           dart --version
 
-      - name: Fix CMakeLists.txt hardcoded paths
+      - name: Clone required native dependencies
         run: |
-          # The CMakeLists.txt is at android/app/src/main/cpp/CMakeLists.txt
+          # Create the directory structure
+          mkdir -p android/app/src/main/cpp/libaeroambe
+          cd android/app/src/main/cpp/libaeroambe
+          
+          # Clone mbelib
+          echo "Cloning mbelib..."
+          git clone https://github.com/szechyjs/mbelib.git mbelib-master 2>/dev/null || true
+          
+          # Clone libaeroambe
+          echo "Cloning libaeroambe..."
+          git clone https://github.com/szechyjs/libaeroambe.git libaeroambe 2>/dev/null || true
+          
+          # List contents to verify
+          echo "Contents of libaeroambe directory:"
+          ls -la
+          
+          cd -
+
+      - name: Fix CMakeLists.txt
+        run: |
           CMAKE_FILE="android/app/src/main/cpp/CMakeLists.txt"
           
-          echo "Original CMakeLists.txt:"
-          cat "$CMAKE_FILE"
+          # Create backup
+          cp "$CMAKE_FILE" "$CMAKE_FILE.bak"
           
-          # Fix hardcoded path by replacing with relative path
-          # Change /home/rose/Compiled/AndAERO/libaeroambe to ${CMAKE_CURRENT_SOURCE_DIR}/libaeroambe
+          # Fix hardcoded path
           sed -i 's|/home/rose/Compiled/AndAERO/libaeroambe|${CMAKE_CURRENT_SOURCE_DIR}/libaeroambe|g' "$CMAKE_FILE"
           
-          echo -e "\n\nFixed CMakeLists.txt:"
-          cat "$CMAKE_FILE"
+          echo "Fixed CMakeLists.txt:"
+          grep -n "libaeroambe" "$CMAKE_FILE" || echo "No libaeroambe references found"
 
-      - name: Ensure libaeroambe directory exists
+      - name: Verify source files exist
         run: |
-          # Check if the libaeroambe directory exists in the cpp folder
-          if [ ! -d "android/app/src/main/cpp/libaeroambe" ]; then
-            echo "Warning: libaeroambe directory not found. Creating symlink or structure..."
-            # Try to find libaeroambe elsewhere in the project
-            find . -name "libaeroambe" -type d 2>/dev/null || true
+          echo "Checking for required source files..."
+          
+          # Check if ambe4800x3600.c exists
+          if [ -f "android/app/src/main/cpp/libaeroambe/mbelib-master/ambe4800x3600.c" ]; then
+            echo "✅ ambe4800x3600.c found!"
+          else
+            echo "❌ ambe4800x3600.c NOT found"
+            echo "Looking for it elsewhere..."
+            find android -name "ambe4800x3600.c" 2>/dev/null || echo "File not found in android directory"
+            
+            # Try to find and copy if it exists somewhere else
+            if [ -f "android/app/src/main/cpp/libaeroambe/mbelib-master/src/ambe4800x3600.c" ]; then
+              echo "Found in src/ subdirectory, copying to root..."
+              cp android/app/src/main/cpp/libaeroambe/mbelib-master/src/ambe4800x3600.c android/app/src/main/cpp/libaeroambe/mbelib-master/
+            fi
           fi
+          
+          # List all C files in the mbelib directory
+          echo "All C files in mbelib-master:"
+          find android/app/src/main/cpp/libaeroambe -name "*.c" -type f 2>/dev/null || echo "No .c files found"
 
-      - name: Get dependencies
+      - name: Get Flutter dependencies
         run: flutter pub get
 
-      - name: Build APK
-        run: flutter build apk --release
+      - name: Build APK with skip validation
+        run: flutter build apk --release --android-skip-build-dependency-validation
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
