@@ -1,82 +1,143 @@
-name: Build PocketAERO APK (Direct)
+name: Build PocketAERO APK
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up Java
         uses: actions/setup-java@v5
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: temurin
+          java-version: "17"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'master'
+          channel: stable
           cache: true
 
-      - name: Create all required native source files
+      - name: Create required native source directory
         run: |
-          # Create directory structure
           mkdir -p android/app/src/main/cpp/libaeroambe/mbelib-master
-          
-          # Create ambe4800x3600.c
-          cat > android/app/src/main/cpp/libaeroambe/mbelib-master/ambe4800x3600.c << 'EOF'
+
+      - name: Create AMBE source
+        run: |
+          cat > android/app/src/main/cpp/libaeroambe/mbelib-master/ambe4800x3600.c <<'EOF'
           #include <stdint.h>
           #include <string.h>
-          
+
           #define AMBE_4800X3600_BITS 49
           #define AMBE_4800X3600_PCM 160
-          
-          int ambe_4800x3600_init(void) { return 0; }
-          
-          int ambe_4800x3600_decode(const uint8_t *ambe_bits, int16_t *pcm_out) {
-              if (!ambe_bits || !pcm_out) return -1;
-              for (int i = 0; i < AMBE_4800X3600_PCM; i++) {
+
+          int ambe_4800x3600_init(void)
+          {
+              return 0;
+          }
+
+          int ambe_4800x3600_decode(
+              const uint8_t *ambe_bits,
+              int16_t *pcm_out)
+          {
+              if (!ambe_bits || !pcm_out)
+                  return -1;
+
+              for (int i = 0; i < AMBE_4800X3600_PCM; i++)
                   pcm_out[i] = 0;
-              }
+
               return AMBE_4800X3600_PCM;
           }
-          
-          void ambe_4800x3600_destroy(void) {}
+
+          void ambe_4800x3600_destroy(void)
+          {
+          }
           EOF
-          
-          # Create additional mbelib files that might be needed
-          for file in ambe7200x4400.c imbe7100x4400.c; do
-            cat > android/app/src/main/cpp/libaeroambe/mbelib-master/$file << EOF
-            #include <stdint.h>
-            int ${file%.c}_init(void) { return 0; }
-            int ${file%.c}_decode(const uint8_t *bits, int16_t *out) {
-                if (!bits || !out) return -1;
-                for (int i = 0; i < 160; i++) out[i] = 0;
-                return 160;
-            }
-            void ${file%.c}_destroy(void) {}
-            EOF
-          done
-          
-          echo "✅ All source files created"
+
+      - name: Create additional AMBE source files
+        run: |
+          cat > android/app/src/main/cpp/libaeroambe/mbelib-master/ambe7200x4400.c <<'EOF'
+          #include <stdint.h>
+
+          int ambe7200x4400_init(void)
+          {
+              return 0;
+          }
+
+          int ambe7200x4400_decode(
+              const uint8_t *bits,
+              int16_t *out)
+          {
+              if (!bits || !out)
+                  return -1;
+
+              for (int i = 0; i < 160; i++)
+                  out[i] = 0;
+
+              return 160;
+          }
+
+          void ambe7200x4400_destroy(void)
+          {
+          }
+          EOF
+
+          cat > android/app/src/main/cpp/libaeroambe/mbelib-master/imbe7100x4400.c <<'EOF'
+          #include <stdint.h>
+
+          int imbe7100x4400_init(void)
+          {
+              return 0;
+          }
+
+          int imbe7100x4400_decode(
+              const uint8_t *bits,
+              int16_t *out)
+          {
+              if (!bits || !out)
+                  return -1;
+
+              for (int i = 0; i < 160; i++)
+                  out[i] = 0;
+
+              return 160;
+          }
+
+          void imbe7100x4400_destroy(void)
+          {
+          }
+          EOF
+
+      - name: Show native files
+        run: |
+          find android/app/src/main/cpp -type f -print
 
       - name: Fix CMakeLists.txt
         run: |
           sed -i 's|/home/rose/Compiled/AndAERO/libaeroambe|${CMAKE_CURRENT_SOURCE_DIR}/libaeroambe|g' \
             android/app/src/main/cpp/CMakeLists.txt
 
-      - name: Build
+          echo "===== CMakeLists.txt ====="
+          cat android/app/src/main/cpp/CMakeLists.txt
+
+      - name: Get Flutter dependencies
         run: |
           flutter pub get
-          flutter build apk --release --android-skip-build-dependency-validation
 
-      - name: Upload
+      - name: Build APK
+        run: |
+          flutter build apk \
+            --release \
+            --android-skip-build-dependency-validation
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: pocketaero-apk
