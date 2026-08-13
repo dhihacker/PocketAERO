@@ -43,6 +43,9 @@ void la_asn1_output(la_asn1_formatter_params p, la_asn1_formatter const *asn1_fo
 	size_t table_len = asn1_formatter_table_len;
 #elif defined LFIND_NMEMB_SIZE_UINT
 	unsigned int table_len = (unsigned int)asn1_formatter_table_len;
+#else
+	/* Fallback: assume lfind expects a size_t pointer for nmemb */
+	size_t table_len = asn1_formatter_table_len;
 #endif
 	la_asn1_formatter *formatter = lfind(p.td, asn1_formatter_table, &table_len,
 			sizeof(la_asn1_formatter), &la_compare_fmtr);
